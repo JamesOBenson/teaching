@@ -222,7 +222,7 @@ function usage () {
 
 function main () {
   echo ""
-  echo "Welcome to Cluster Deploy Script"
+  echo "Welcome to WordPress Deploy Script"
   echo ""
 
  if [ -z $1 ]; then 
