@@ -1,12 +1,11 @@
 #!/bin/bash
 username=wordpress
-dbusername=wordpressuser
-KEYPAIR=myprivatekey
+mysqlusername=wordpress
+mysqlpassword=password
 
-IPADDR="10.245.135.22"
+IPADDR="10.245.135.23"
 #IPADDR=`curl -s http://icanhazip.com` > /dev/null
 
-mysqlpassword="root"
 
 ##############################################################
 ####             DO NOT MODIFY BELOW THIS LINE            ####
@@ -36,6 +35,7 @@ if [ $(id -u) -eq 0 ]; then
 		pass=$(perl -e 'print crypt($ARGV[0], "password")' $password)
 		sudo useradd -m -p $pass $username
 		usermod -aG sudo $username
+                echo ""
 		[ $? -eq 0 ] && echo "User has been added to system and promoted to sudo user!" || echo "Failed to add a user!"
 #	fi
 else
@@ -110,8 +110,8 @@ function PHP () {
   echo ""
   echo ""
   sudo apt-get install -y php libapache2-mod-php php-mcrypt php-mysql
-  sudo sed 's/php/html/' /etc/apache2/mods-enabled/dir.conf
-  sudo sed 's/html/php/' /etc/apache2/mods-enabled/dir.conf
+#  sudo sed 's/php/html/' /etc/apache2/mods-enabled/dir.conf
+#  sudo sed 's/html/php/' /etc/apache2/mods-enabled/dir.conf
 #  scp vars/info.php ubuntu@$IPADDR:/tmp/info.php
   sudo cp vars/info.php /var/www/html/info.php
 #  sudo cp /tmp/info.php /var/www/html/info.php
@@ -178,7 +178,7 @@ sudo chmod -R g+w /var/www/html/wp-content/themes
 sudo chmod -R g+w /var/www/html/wp-content/plugins
 sudo sed -i "s/define('AUTH_KEY',/,+8d" /var/www/html/wp-config.php
 sudo sh -c 'curl -s https://api.wordpress.org/secret-key/1.1/salt/ >> /var/www/html/wp-config.php'
-sudo sed -i "s/database_name_here/wordpress/g" /var/www/html/wp-config.php
+sudo sed -i "s/database_name_here/$mysqlusername/g" /var/www/html/wp-config.php
 sudo sed -i "s/username_here/$username/g" /var/www/html/wp-config.php
 sudo sed -i "s/password_here/$mysqlpassword/g" /var/www/html/wp-config.php
 sudo echo "define('FS_METHOD', 'direct');" >> /var/www/html/wp-config.php
