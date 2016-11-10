@@ -176,7 +176,7 @@ sudo find /var/www/html -type d -exec chmod g+s {} \;
 sudo chmod g+w /var/www/html/wp-content
 sudo chmod -R g+w /var/www/html/wp-content/themes
 sudo chmod -R g+w /var/www/html/wp-content/plugins
-sudo sed -i "s/define('AUTH_KEY',/,+8d" /var/www/html/wp-config.php
+sudo sed -i "/define('AUTH_KEY',/,+8d" /var/www/html/wp-config.php
 sudo sh -c 'curl -s https://api.wordpress.org/secret-key/1.1/salt/ >> /var/www/html/wp-config.php'
 sudo sed -i "s/database_name_here/$mysqlusername/g" /var/www/html/wp-config.php
 sudo sed -i "s/username_here/$username/g" /var/www/html/wp-config.php
