@@ -1,7 +1,10 @@
 #!/bin/bash
 username=wordpress
 usernamepass=password
-
+rootmysqlpass=password
+wpmysqlpass=password
+#rootmysqlpass=`dd if=/dev/urandom bs=1 count=32 2>/dev/null | base64 -w 0 | rev | cut -b 2- | rev | tr -dc 'a-zA-Z0-9'`;
+#wpmysqlpass=`dd if=/dev/urandom bs=1 count=32 2>/dev/null | base64 -w 0 | rev | cut -b 2- | rev | tr -dc 'a-zA-Z0-9'`;
 IPADDR="10.245.135.23"
 #IPADDR=`curl -s http://icanhazip.com` > /dev/null
 
@@ -52,6 +55,7 @@ function Apache () {
   echo ""
 # Install LAMP stack
   sudo apt-get -y update
+  sudo apt-get -y upgrade
   sudo apt-get install -y apache2
   sudo apache2ctl configtest
   echo "DEBUG - ERROR OUTPUT"
@@ -85,7 +89,13 @@ function MySQL_Server () {
 
 #  echo 'mysql-server mysql-server/root_password password $mysqlpassword' | sudo debconf-set-selections
 #  echo 'mysql-server mysql-server/root_password_again password $mysqlpassword' | sudo debconf-set-selections
-  export DEBIAN_FRONTEND=noninteractive; sudo apt-get install -y mysql-server
+  export DEBIAN_FRONTEND=noninteractive; 
+  sudo apt-get install -y mysql-server
+  sudo apt-get install -y mysql-client
+  /usr/bin/mysqladmin -u root -h localhost create wordpress;
+  /usr/bin/mysqladmin -u root -h localhost password $rootmysqlpass;
+  /usr/bin/mysql -uroot -p$rootmysqlpass -e "CREATE USER wordpress@localhost IDENTIFIED BY '"$wpmysqlpass"'";
+  /usr/bin/mysql -uroot -p$rootmysqlpass -e "GRANT ALL PRIVILEGES ON wordpress.* TO wordpress@localhost";
   read -p "Do you want to do a secure (manual) mysql installation?   (Default: no) " -n 1 -r  mysqlsecureinstall
   case "$mysqlsecureinstall" in 
     y|Y ) 
@@ -160,37 +170,40 @@ function SSL_Keys () {
 }
 
 function Wordpress () {
-  mysql -u root -ppassword --execute="CREATE DATABASE wordpress DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci; "
-  mysql -u root -ppassword --execute="GRANT ALL ON $username.* TO '$username'@'localhost' IDENTIFIED BY '$usernamepass';FLUSH PRIVILEGES;"
   sudo apt-get install -y php-curl php-gd php-mbstring php-mcrypt php-xml php-xmlrpc
   sudo systemctl restart apache2
-  cat << EOF >> /etc/apache2/apache2.conf
-<Directory /var/www/html/>
-AllowOverride All
-</Directory>
-EOF
-  sudo a2enmod rewrite
-  sudo apache2ctl configtest
-  sudo systemctl restart apache2
+#  cat << EOF >> /etc/apache2/apache2.conf
+#<Directory /var/www/html/>
+#AllowOverride All
+#</Directory>
+#EOF
+#  sudo a2enmod rewrite
+#  sudo apache2ctl configtest
+#  sudo systemctl restart apache2
   cd /tmp
   curl -O https://wordpress.org/latest.tar.gz
   tar xzvf latest.tar.gz
-touch /tmp/wordpress/.htaccess
-chmod 660 /tmp/wordpress/.htaccess
+#touch /tmp/wordpress/.htaccess
+#chmod 660 /tmp/wordpress/.htaccess
 cp /tmp/wordpress/wp-config-sample.php /tmp/wordpress/wp-config.php
-mkdir /tmp/wordpress/wp-content/upgrade
-sudo cp -a /tmp/wordpress/. /var/www/html
+#mkdir /tmp/wordpress/wp-content/upgrade
+sudo cp -Rf /tmp/wordpress/* /var/www/html/.
+sudo rm -f /var/www/html/index.html
 sudo chown -R $username:www-data /var/www/html
-sudo find /var/www/html -type d -exec chmod g+s {} \;
-sudo chmod g+w /var/www/html/wp-content
-sudo chmod -R g+w /var/www/html/wp-content/themes
-sudo chmod -R g+w /var/www/html/wp-content/plugins
+sudo a2enmod rewrite
+
+
+#sudo find /var/www/html -type d -exec chmod g+s {} \;
+#sudo chmod g+w /var/www/html/wp-content
+#sudo chmod -R g+w /var/www/html/wp-content/themes
+#sudo chmod -R g+w /var/www/html/wp-content/plugins
 sudo sed -i "/define('AUTH_KEY',/,+8d" /var/www/html/wp-config.php
 sudo sh -c 'curl -s https://api.wordpress.org/secret-key/1.1/salt/ >> /var/www/html/wp-config.php'
 sudo sed -i "s/database_name_here/$username/g" /var/www/html/wp-config.php
 sudo sed -i "s/username_here/$username/g" /var/www/html/wp-config.php
 sudo sed -i "s/password_here/$usernamepass/g" /var/www/html/wp-config.php
 sudo echo "define('FS_METHOD', 'direct');" >> /var/www/html/wp-config.php
+  sudo systemctl restart apache2
 
 }
 
