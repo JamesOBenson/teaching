@@ -1,7 +1,6 @@
 #!/bin/bash
 username=wordpress
-mysqlusername=wordpress
-mysqlpassword=password
+usernamepass=password
 
 IPADDR="10.245.135.23"
 #IPADDR=`curl -s http://icanhazip.com` > /dev/null
@@ -13,6 +12,7 @@ IPADDR="10.245.135.23"
 
 #  This is for the controller (where this script is running)
 function setup_client_os () {
+ sudo apt-get install python-pip
  sudo pip install python-openstackclient
 }
 
@@ -20,7 +20,7 @@ function install_user() {
 if [ $(id -u) -eq 0 ]; then
 	read -p "Enter username (default: wordpress): " username
            if [[ -z "${username}" ]]; 
-              then username='wordpress' 
+              then username='wordpress'
            fi
         egrep "^$username" /etc/passwd >/dev/null
         if [ $? -eq 0 ]; then
@@ -29,7 +29,7 @@ if [ $(id -u) -eq 0 ]; then
 	fi
         read -s -p "Enter password (default: WPpassword) : " password
            if [[ -z "${password}" ]]; 
-              then password='WPpassword' 
+              then password='WPpassword'
            fi
 #	else
 		pass=$(perl -e 'print crypt($ARGV[0], "password")' $password)
@@ -54,14 +54,23 @@ function Apache () {
   sudo apt-get -y update
   sudo apt-get install -y apache2
   sudo apache2ctl configtest
+  echo "DEBUG - ERROR OUTPUT"
+  sleep 2
+  echo ""
+  echo ""
+
   sudo echo "ServerName $IPADDR" >> /etc/apache2/apache2.conf
   sudo apache2ctl configtest
-  echo "DEBUG VERIFY :  Syntax OK"
+  echo "DEBUG - ERROR OUTPUT FIXED - VERIFY :  Syntax OK"
   sleep 5
+  echo ""
+  echo ""
+
   sudo systemctl restart apache2
-#  sudo ufw allow 'Apache Full'"
+  sudo ufw allow in "Apache Full"
   sudo ufw allow proto tcp from any to any port 80,443
   echo "RESULT:  PLEASE VERIFY YOUR WEBSITE CAN BE VIEWED AT: http://$IPADDR"
+  read -rsp $'Press any key to continue...\n' -n1 key
 }
 
 
@@ -71,8 +80,8 @@ function MySQL_Server () {
   echo "DEBUG: INSTALLING MySQL Server"
   echo ""
   echo ""
-  sudo debconf-set-selections <<< "mysql-server mysql-server/root_password password $mysqlpassword"
-  sudo debconf-set-selections <<< "mysql-server mysql-server/root_password_again password $mysqlpassword"
+  sudo debconf-set-selections <<< "mysql-server mysql-server/root_password password $usernamepass"
+  sudo debconf-set-selections <<< "mysql-server mysql-server/root_password_again password $usernamepass"
 
 #  echo 'mysql-server mysql-server/root_password password $mysqlpassword' | sudo debconf-set-selections
 #  echo 'mysql-server mysql-server/root_password_again password $mysqlpassword' | sudo debconf-set-selections
@@ -109,14 +118,18 @@ function PHP () {
   echo "DEBUG: INSTALLING PHP"
   echo ""
   echo ""
+  sudo cp vars/info.php /var/www/html/info.php
+  echo "RESULT:  PLEASE VERIFY YOUR WEBSITE CAN BE VIEWED AT: http://$IPADDR/info.php"
+  read -rsp $'Press any key to continue...\n' -n1 key
+
   sudo apt-get install -y php libapache2-mod-php php-mcrypt php-mysql
 #  sudo sed 's/php/html/' /etc/apache2/mods-enabled/dir.conf
 #  sudo sed 's/html/php/' /etc/apache2/mods-enabled/dir.conf
 #  scp vars/info.php ubuntu@$IPADDR:/tmp/info.php
-  sudo cp vars/info.php /var/www/html/info.php
 #  sudo cp /tmp/info.php /var/www/html/info.php
   sudo systemctl restart apache2
   echo "RESULT:  PLEASE VERIFY YOUR WEBSITE CAN BE VIEWED AT: http://$IPADDR/info.php"
+  read -rsp $'Press any key to continue...\n' -n1 key
 }
 
 function SSL_Keys () {
@@ -129,12 +142,8 @@ function SSL_Keys () {
     -subj "/C=US/ST=Texas/L=SanAntonio/O=UTSA/CN=$IPADDR" \
     -keyout /etc/ssl/private/apache-selfsigned.key  -out /etc/ssl/certs/apache-selfsigned.crt
   sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
-#  scp -i $SSH_PATH /home/ubuntu/TSERI/openstack_data_processing/include/krb5.conf $SSH_USER_NAME@$EDGE_IP:/tmp/krb5.conf "
-#  scp ssl-params.conf ubuntu@$IPADDR:/tmp/ssl-params.conf
   cp vars/ssl-params.conf /etc/apache2/conf-available/ssl-params.conf
-#  sudo cp /tmp/ssl-params.conf /etc/apache2/conf-available/ssl-params.conf
   sudo cp /etc/apache2/sites-available/default-ssl.conf /etc/apache2/sites-available/default-ssl.conf.bak
-#  scp default-ssl.conf ubuntu@$IPADDR:/tmp/default-ssl.conf
   cp vars/default-ssl.conf /tmp/default-ssl.conf
   sudo sed -i "s/IPADDR/$IPADDR/" /tmp/default-ssl.conf
   sudo cp /tmp/default-ssl.conf /etc/apache2/sites-available/default-ssl.conf
@@ -151,8 +160,8 @@ function SSL_Keys () {
 }
 
 function Wordpress () {
-  mysql -u root -proot --execute="CREATE DATABASE wordpress DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci; "
-  mysql -u root -proot --execute="GRANT ALL ON wordpress.* TO 'wordpressuser'@'localhost' IDENTIFIED BY '$mysqlpassword';FLUSH PRIVILEGES;"
+  mysql -u root -ppassword --execute="CREATE DATABASE wordpress DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci; "
+  mysql -u root -ppassword --execute="GRANT ALL ON $username.* TO '$username'@'localhost' IDENTIFIED BY '$usernamepass';FLUSH PRIVILEGES;"
   sudo apt-get install -y php-curl php-gd php-mbstring php-mcrypt php-xml php-xmlrpc
   sudo systemctl restart apache2
   cat << EOF >> /etc/apache2/apache2.conf
@@ -178,25 +187,19 @@ sudo chmod -R g+w /var/www/html/wp-content/themes
 sudo chmod -R g+w /var/www/html/wp-content/plugins
 sudo sed -i "/define('AUTH_KEY',/,+8d" /var/www/html/wp-config.php
 sudo sh -c 'curl -s https://api.wordpress.org/secret-key/1.1/salt/ >> /var/www/html/wp-config.php'
-sudo sed -i "s/database_name_here/$mysqlusername/g" /var/www/html/wp-config.php
+sudo sed -i "s/database_name_here/$username/g" /var/www/html/wp-config.php
 sudo sed -i "s/username_here/$username/g" /var/www/html/wp-config.php
-sudo sed -i "s/password_here/$mysqlpassword/g" /var/www/html/wp-config.php
+sudo sed -i "s/password_here/$usernamepass/g" /var/www/html/wp-config.php
 sudo echo "define('FS_METHOD', 'direct');" >> /var/www/html/wp-config.php
 
 }
 
 function uninstall () {
+  sudo rm -Rf /tmp/wordpress/wp-content/upgrade
+  sudo rm -Rf /var/www/html/*
+  sudo userdel $username
+  sudo rm -rf /home/$username
   sudo apt-get --purge remove mysql-server mysql-common mysql-client php-curl php-gd php-mbstring php-mcrypt php-xml php-xmlrpc apache2 php libapache2-mod-php php-mcrypt php-mysql
-}
-
-
-function cmd () {
-  # Run custom command for each node in cluster
-  CMD=$1
-  echo "The command to run is --> [$CMD]"
-#  ssh -i $SSH_PATH  ubuntu@$IPADDR $CMD
-#  ssh ubuntu@$IPADDR $CMD
-  $CMD
 }
 
 function usage () {
@@ -216,7 +219,6 @@ function usage () {
   echo ""
   echo "Wordpress"
 
-  echo "cmd"
 
 }
 
@@ -249,17 +251,16 @@ function main () {
     "Apache")
       Apache
      ;;
-    "cmd")
-      cmd
-    ;;
     "PreReqs")
       Apache
       MySQL_Server
       PHP
-      SSL_Keys
     ;;
     "Wordpress")
       Wordpress
+    ;;
+    "uninstall")
+      uninstall
     ;;
     *)
      usage
