@@ -3,8 +3,8 @@
 # sudo pip install python-openstackclient
 
 # Set your servername
-servername="wordpress"
-keypairname=wordpress-keypair
+export servername="wordpress"
+export keypairname=wordpress-keypair
 
 #show VM's that are created
 openstack server list --insecure
