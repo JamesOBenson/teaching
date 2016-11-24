@@ -3,7 +3,7 @@
 # sudo pip install python-openstackclient
 
 # Set your servername
-export servername="wordpress"
+export servername="Benson-wp"
 export keypairname=wordpress-keypair
 
 #show VM's that are created
