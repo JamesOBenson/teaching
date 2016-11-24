@@ -16,7 +16,7 @@ imageID=`openstack image list --insecure | grep 'Ubuntu 16.04 LTS' | awk '{print
 
 # Show available flavors (VM sizes) and select the m1.small
 openstack flavor list --insecure
-flavorID=`openstack flavor list --insecure | grep 'm1.small' | awk '{print $2}'`
+flavorID=`openstack flavor list --insecure | grep 'demo' | awk '{print $2}'`
 # output: 2
 
 # Create a public and private Keypair to be able to log into the VM
